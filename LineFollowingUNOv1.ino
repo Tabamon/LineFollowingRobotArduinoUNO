@@ -1,81 +1,57 @@
 //Line following robot code Arduino UNO
 
 #include <Servo.h>
-#define defaultSpeed 9
-#define steerSpeed 12
-#define gentleSteerSpeed 10
-#define turnOnSwitch 12
+#define defaultSpeed 15 //pwm
+#define steerSpeed 0 //pwm
+#define gentleSteerSpeed 10 //pwm
 
-
-enum Sensors{
-  left=4, midLeft, central, midRight, right
-};
+#define turnOnSwitch 12 //pin
 
 Servo leftMotor, rightMotor;
-int lastIRRecord;
-bool noIRActive();
 
 void setup() {
   leftMotor.attach(10);
   rightMotor.attach(11);
   leftMotor.write(0);
   rightMotor.write(0);
-  pinMode(central,INPUT);
-  pinMode(left,INPUT);
-  pinMode(right,INPUT);
-  pinMode(midLeft,INPUT);
-  pinMode(midRight,INPUT);
-  pinMode(turnOnSwitch,INPUT);
+  DDRD = 0;
+  Serial.begin(9600);
+  pinMode(turnOnSwitch,INPUT_PULLUP);
   
 }
 
 void loop() {
   if (digitalRead(turnOnSwitch)==HIGH){
-    if (digitalRead(central)==HIGH){
-      leftMotor.write(defaultSpeed);
+    byte IRArray = PIND; //values of pins of port D into IRArray
+    IRArray = IRArray >> 2; //move the bits so that the leftmost sensor is in bit 0
+//    IRArray = ~IRArray; //if doesnt work uncomment line
+    IRArray = IRArray & 0x1f; //mask out unused bits
+    Serial.println(IRArray);
+    switch (IRArray){
+      case 1: //leftmost sensor
       rightMotor.write(defaultSpeed);
-      delay(150);
-    }
-    if (digitalRead(midLeft)==HIGH){
-      rightMotor.write(gentleSteerSpeed);
-      delay(150);
-    }
-    if (digitalRead(midRight)==HIGH){
-      leftMotor.write(gentleSteerSpeed);
-      delay(150);
-    }
-    if(digitalRead(left)==HIGH){
-      rightMotor.write(steerSpeed);
-      delay(150);
-      lastIRRecord=left;
-    }
-    if(digitalRead(right)==LOW){
       leftMotor.write(steerSpeed);
-      delay(150);
-      lastIRRecord=right;
+      break;
+      case 2: //middle-left sensor
+      rightMotor.write(defaultSpeed);
+      leftMotor.write(gentleSteerSpeed);
+      break;
+      case 4: //middle sensor
+      rightMotor.write(defaultSpeed);
+      leftMotor.write(defaultSpeed);
+      break;
+      case 8: //middle-right sensor
+      rightMotor.write(gentleSteerSpeed);
+      leftMotor.write(defaultSpeed);
+      break;
+      case 16://rightmost sensor
+      rightMotor.write(steerSpeed);
+      leftMotor.write(defaultSpeed);
+      break;
+      default:
+      // do nothing if multiple sensors are active or no sensors are active
+      break;
     }
-    if (noIRActive()){
-      switch (lastIRRecord){
-        case left:
-          rightMotor.write(steerSpeed);
-          delay(150);
-        break;
-        case right:
-          leftMotor.write(steerSpeed);
-          delay(150);
-        break;
-        default:
-          //nothing
-        break;
-      }
-    }
+    delay(25); //give the arduino a chance to generate the waveform before changing again
   }
-}
-
-bool noIRActive(){
-  bool flag = true;
-  for (unsigned i =left; i<right; ++i){
-    if (digitalRead(i)==HIGH) flag = false;
-  }
-  return flag;
 }
